@@ -7,43 +7,44 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/vimeo/dials"
-	"github.com/vimeo/dials/json"
-	"github.com/vimeo/dials/static"
+	"github.com/vimeo/dials/decoders/json"
+	"github.com/vimeo/dials/sources/static"
 )
 
-type testSubPanel struct {
+type testSubPanel[RT, T any] struct {
 	t              testing.TB
-	sp             SetupParams
-	dCfg           interface{}
+	sp             SetupParams[T]
+	dCfg           *T
 	cmdArgs        []string
 	expectedSCPath []string
 	expectedArgs   []string
-	expSubDCfg     interface{}
-	expPanelDCfg   interface{}
+	expSubDCfg     *T
+	expPanelDCfg   *RT
 }
 
-func (t *testSubPanel) Description(scPath []string) string {
+func (t *testSubPanel[RT, T]) Description(scPath []string) string {
 	return "description " + strings.Join(scPath, "-")
 }
 
-func (t *testSubPanel) ShortUsage(scPath []string) string {
+func (t *testSubPanel[RT, T]) ShortUsage(scPath []string) string {
 	return "short " + strings.Join(scPath, "-")
 }
 
-func (t *testSubPanel) LongUsage(scPath []string) string {
+func (t *testSubPanel[RT, T]) LongUsage(scPath []string) string {
 	return "long " + strings.Join(scPath, "-")
 }
 
-func (t *testSubPanel) DefaultConfig() interface{} {
+func (t *testSubPanel[RT, T]) DefaultConfig() *T {
 	return t.dCfg
 }
 
-func (t *testSubPanel) SetupParams() SetupParams {
+func (t *testSubPanel[RT, T]) SetupParams() SetupParams[T] {
 	return t.sp
 }
 
-func (t *testSubPanel) Run(ctx context.Context, s *Something) error {
+func (t *testSubPanel[RT, T]) Run(ctx context.Context, s *Handle) error {
 	t.t.Logf("args: %q, %q, %q", s.Args, s.CommandArgs, s.SCPath)
 	assert.Equal(t.t, t.cmdArgs, s.CommandArgs)
 	assert.Equal(t.t, t.expectedArgs, s.Args)
@@ -94,7 +95,10 @@ func TestPanels(t *testing.T) {
 		},
 		{
 			name: "NewDialsFuncPanel",
-			p: Panel{
+			p: Panel[struct {
+				Song   string
+				Artist string
+			}]{
 				dCfg: &struct {
 					Song   string
 					Artist string
@@ -183,7 +187,7 @@ func TestPanels(t *testing.T) {
 		tc := testCase
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			sch, regErr := tc.p.Register(tc.scName, &tc.tsp)
+			sch, regErr := Register(tc.p, tc.scName, &tc.tsp)
 			require.NoError(t, regErr)
 			require.NotNil(t, sch)
 			assert.Len(t, tc.p.schMap, 1)
